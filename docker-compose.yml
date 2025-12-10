@@ -4,4 +4,6 @@ services:
     container_name: agentic-ai-api
     ports:
       - "5505:5505"
+    env_file:
+      - .env
     restart: unless-stopped
