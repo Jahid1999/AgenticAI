@@ -1,9 +1,10 @@
-from typing import Literal
-from fastapi import FastAPI, Query
+from typing import Literal, Any, Dict
+from fastapi import FastAPI, Query, Body
 from pydantic import BaseModel
 from app.intro_to_openai_agent import create_agent, run_agent_basic
 from app.get_client import ClientName
 from app.guardrails_and_handoffs import process_with_guardrails_and_handoffs, HandoffResult
+from app.survey_generator import generate_survey, SurveyResponse
 
 
 class TokenUsage(BaseModel):
@@ -117,4 +118,47 @@ async def guardrails_handoffs(
             input_guardrail_passed=False,
             output_guardrail_passed=False,
             errors=[f"Error: {str(e)}"]
+        )
+
+
+@app.post(
+    "/generate-survey",
+    summary="Generate Survey Form",
+    description="Generate structured survey JSON based on natural language description",
+    response_model=SurveyResponse,
+)
+async def generate_survey_endpoint(
+    user_request: str = Body(..., description="Natural language description of survey fields", embed=True),
+    existing_form_data: list[Dict[str, Any]] | None = Body(None, description="Optional existing form data to modify"),
+    client: Literal["openai", "deepseek", "gemini"] = Body("openai", description="The AI provider to use"),
+):
+    """
+    Generate survey form JSON with structured output.
+
+    This endpoint uses the comprehensive survey schema to generate:
+    - Field types: text, number, date, radio, dropdown, checkbox, etc.
+    - Auto-generated UUIDs and database column names
+    - Validation rules, skip logic, calculations
+    - Published field protection
+
+    Examples:
+    ```json
+    {
+      "user_request": "Create a survey with gender (radio), age (number), and name (text)",
+      "client": "openai"
+    }
+    ```
+
+    Returns structured JSON with message and form_data array.
+    """
+    try:
+        result = await generate_survey(user_request, existing_form_data, client)
+        return result
+    except Exception as e:
+        import traceback
+        print(f"Exception: {str(e)}")
+        print(traceback.format_exc())
+        return SurveyResponse(
+            message=f"Error generating survey: {str(e)}",
+            form_data=[]
         )
