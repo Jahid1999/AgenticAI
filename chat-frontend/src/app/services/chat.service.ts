@@ -9,15 +9,32 @@ import { ChatRequest, ChatResponse, ChatMessage } from '../models/chat.model';
 })
 export class ChatService {
   private readonly apiUrl = '/api/chat';
+  private readonly SESSION_KEY = 'chat_session_id';
+
   private messagesSubject = new BehaviorSubject<ChatMessage[]>([]);
   public messages$ = this.messagesSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  private sessionId: string | null = null;
+
+  constructor(private http: HttpClient) {
+    // Restore session from localStorage if exists
+    this.sessionId = localStorage.getItem(this.SESSION_KEY);
+  }
 
   sendMessage(message: string): Observable<ChatResponse> {
-    const request: ChatRequest = { message };
+    const request: ChatRequest = {
+      message,
+      session_id: this.sessionId || undefined
+    };
 
     return this.http.post<ChatResponse>(`${this.apiUrl}/message`, request).pipe(
+      tap(response => {
+        // Store session ID for future requests
+        if (response.session_id) {
+          this.sessionId = response.session_id;
+          localStorage.setItem(this.SESSION_KEY, response.session_id);
+        }
+      }),
       catchError(this.handleError)
     );
   }
@@ -44,15 +61,44 @@ export class ChatService {
     this.messagesSubject.next([]);
   }
 
+  getSessionId(): string | null {
+    return this.sessionId;
+  }
+
   resetConversation(): Observable<{ status: string; message: string }> {
-    return this.http.post<{ status: string; message: string }>(`${this.apiUrl}/reset`, {}).pipe(
-      tap(() => this.clearMessages()),
+    const sessionId = this.sessionId;
+    return this.http.post<{ status: string; message: string }>(
+      `${this.apiUrl}/reset`,
+      null,
+      { params: sessionId ? { session_id: sessionId } : {} }
+    ).pipe(
+      tap(() => {
+        this.clearMessages();
+        this.sessionId = null;
+        localStorage.removeItem(this.SESSION_KEY);
+      }),
       catchError(this.handleError)
     );
   }
 
-  healthCheck(): Observable<{ status: string; service: string }> {
-    return this.http.get<{ status: string; service: string }>(`${this.apiUrl}/health`).pipe(
+  createNewSession(): Observable<{ session_id: string; message: string }> {
+    return this.http.post<{ session_id: string; message: string }>(
+      `${this.apiUrl}/session/new`,
+      {}
+    ).pipe(
+      tap(response => {
+        this.sessionId = response.session_id;
+        localStorage.setItem(this.SESSION_KEY, response.session_id);
+        this.clearMessages();
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  healthCheck(): Observable<{ status: string; service: string; active_sessions: number }> {
+    return this.http.get<{ status: string; service: string; active_sessions: number }>(
+      `${this.apiUrl}/health`
+    ).pipe(
       catchError(this.handleError)
     );
   }

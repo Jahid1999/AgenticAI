@@ -3,8 +3,8 @@ Triage Agent
 Routes user queries to the appropriate specialized agent.
 """
 
-from agents import Agent
-from chat_app.config.settings import DEFAULT_MODEL
+from agents import Agent, ModelSettings
+from chat_app.config.settings import DEFAULT_MODEL, MAX_OUTPUT_TOKENS
 
 
 def create_triage_agent(general_agent: Agent, technical_agent: Agent, student_agent: Agent) -> Agent:
@@ -66,6 +66,7 @@ Transfer immediately without explanation.
         name="Triage Assistant",
         instructions=instructions,
         model=DEFAULT_MODEL,
+        model_settings=ModelSettings(max_tokens=MAX_OUTPUT_TOKENS),
         handoffs=[general_agent, technical_agent, student_agent],
     )
 

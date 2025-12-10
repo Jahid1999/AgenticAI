@@ -8,6 +8,11 @@ from typing import Literal
 DEFAULT_MODEL = "gpt-4o-mini"
 TEMPERATURE = 0.7
 TOP_P = 0.9
+MAX_OUTPUT_TOKENS = 1024  # Limit response length
+
+# Session Configuration
+SESSION_TIMEOUT_MINUTES = 30  # Clear session after inactivity
+MAX_HISTORY_MESSAGES = 20  # Keep last N messages in context
 
 # Agent Types
 AgentType = Literal["triage", "general", "technical", "student"]

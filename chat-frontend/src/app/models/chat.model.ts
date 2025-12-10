@@ -9,12 +9,13 @@ export interface ChatMessage {
 
 export interface ChatRequest {
   message: string;
-  conversation_history?: ChatMessage[];
+  session_id?: string;
 }
 
 export interface ChatResponse {
   response: string;
   agent_used: string;
   success: boolean;
+  session_id: string;
   error?: string;
 }

@@ -3,8 +3,8 @@ Student Helper Agent
 Handles educational questions, homework help, and learning.
 """
 
-from agents import Agent
-from chat_app.config.settings import DEFAULT_MODEL
+from agents import Agent, ModelSettings
+from chat_app.config.settings import DEFAULT_MODEL, MAX_OUTPUT_TOKENS
 
 
 def create_student_agent() -> Agent:
@@ -48,6 +48,7 @@ Subjects you help with:
         name="Student Helper",
         instructions=instructions,
         model=DEFAULT_MODEL,
+        model_settings=ModelSettings(max_tokens=MAX_OUTPUT_TOKENS),
     )
 
     return agent

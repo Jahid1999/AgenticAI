@@ -3,8 +3,8 @@ General Chat Agent
 Handles casual conversations and general queries.
 """
 
-from agents import Agent
-from chat_app.config.settings import DEFAULT_MODEL
+from agents import Agent, ModelSettings
+from chat_app.config.settings import DEFAULT_MODEL, MAX_OUTPUT_TOKENS
 
 
 def create_general_agent() -> Agent:
@@ -35,6 +35,7 @@ Example topics you handle well:
         name="General Chat Assistant",
         instructions=instructions,
         model=DEFAULT_MODEL,
+        model_settings=ModelSettings(max_tokens=MAX_OUTPUT_TOKENS),
     )
 
     return agent

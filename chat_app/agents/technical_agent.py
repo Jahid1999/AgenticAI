@@ -3,8 +3,8 @@ Technical Expert Agent
 Handles programming, debugging, and technical questions.
 """
 
-from agents import Agent
-from chat_app.config.settings import DEFAULT_MODEL
+from agents import Agent, ModelSettings
+from chat_app.config.settings import DEFAULT_MODEL, MAX_OUTPUT_TOKENS
 
 
 def create_technical_agent() -> Agent:
@@ -45,6 +45,7 @@ Response format:
         name="Technical Expert",
         instructions=instructions,
         model=DEFAULT_MODEL,
+        model_settings=ModelSettings(max_tokens=MAX_OUTPUT_TOKENS),
     )
 
     return agent
