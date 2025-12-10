@@ -41,3 +41,23 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node.js / Angular
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+package-lock.json
+
+# Angular cache and build
+**/.angular/
+**/out-tsc/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Misc
+*.local

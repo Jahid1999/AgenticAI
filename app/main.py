@@ -5,6 +5,7 @@ from app.intro_to_openai_agent import create_agent, run_agent_basic
 from app.get_client import ClientName
 from app.guardrails_and_handoffs import process_with_guardrails_and_handoffs, HandoffResult
 from app.survey_generator import generate_survey, SurveyResponse
+from chat_app.api.routes import router as chat_router
 
 
 class TokenUsage(BaseModel):
@@ -29,10 +30,22 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Include chat module routes
+app.include_router(chat_router)
+
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Agentic AI API"}
+    return {
+        "message": "Welcome to Agentic AI API",
+        "endpoints": {
+            "intro_openai": "/intro-openai",
+            "guardrails_handoffs": "/guardrails-handoffs",
+            "generate_survey": "/generate-survey",
+            "multi_agent_chat": "/api/chat/message",
+            "docs": "/docs"
+        }
+    }
 
 
 @app.get("/hello", summary="Say Hello", description="Returns a hello greeting message")

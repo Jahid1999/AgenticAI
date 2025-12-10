@@ -3,7 +3,12 @@ services:
     build: .
     container_name: agentic-ai-api
     ports:
-      - "5505:5505"
+      - "8000:8000"
     env_file:
       - .env
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
