@@ -1,0 +1,7 @@
+services:
+  agentic-ai:
+    build: .
+    container_name: agentic-ai-api
+    ports:
+      - "5505:5505"
+    restart: unless-stopped
