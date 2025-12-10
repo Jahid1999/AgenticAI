@@ -1,11 +1,13 @@
 """
 API Routes for Chat Application
-Handles chat requests and agent orchestration.
+Handles chat requests and agent orchestration with streaming support.
 """
 
-from typing import Optional
+import json
+from typing import Optional, AsyncGenerator
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from agents import Runner, set_default_openai_client
 
 from chat_app.agents.general_agent import create_general_agent
@@ -65,10 +67,128 @@ def initialize_agents():
         _agents_initialized = True
 
 
+async def stream_response(
+    message: str,
+    session_id: Optional[str] = None
+) -> AsyncGenerator[str, None]:
+    """
+    Stream the agent response using Server-Sent Events format.
+    """
+    initialize_agents()
+
+    # Get or create session
+    session = session_manager.get_or_create_session(session_id)
+
+    # Add user message to history
+    session.add_message("user", message)
+
+    # Get conversation history
+    history = session.get_history_for_agent()
+
+    full_response = ""
+    current_agent = "Triage Assistant"
+
+    try:
+        # Send session ID first
+        yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
+
+        # Stream the agent response
+        result = Runner.run_streamed(_triage_agent, history)
+
+        # Process stream events
+        async for event in result.stream_events():
+            event_type = getattr(event, 'type', '')
+
+            # Handle agent changes
+            if event_type == 'agent_updated_stream_event':
+                current_agent = event.new_agent.name
+                yield f"data: {json.dumps({'type': 'agent', 'agent': current_agent})}\n\n"
+
+            # Handle raw streaming responses from LLM (OpenAI Responses API format)
+            elif event_type == 'raw_response_event':
+                data = event.data
+                data_type = getattr(data, 'type', '')
+
+                # Handle text delta events (response.output_text.delta)
+                if data_type == 'response.output_text.delta':
+                    delta = getattr(data, 'delta', '')
+                    if delta:
+                        full_response += delta
+                        yield f"data: {json.dumps({'type': 'content', 'content': delta})}\n\n"
+
+                # Handle Chat Completions streaming format (fallback)
+                elif hasattr(data, 'choices') and data.choices:
+                    choice = data.choices[0]
+                    delta = getattr(choice, 'delta', None)
+                    if delta:
+                        content = getattr(delta, 'content', None)
+                        if content:
+                            full_response += content
+                            yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+
+        # Get final agent name
+        try:
+            current_agent = result.last_agent.name
+        except Exception:
+            pass
+
+        # If no streaming content was captured, use final output
+        if not full_response and result.final_output:
+            full_response = str(result.final_output)
+            yield f"data: {json.dumps({'type': 'content', 'content': full_response})}\n\n"
+
+        # Add response to session history
+        session.add_message("assistant", full_response, agent_used=current_agent)
+
+        # Send completion event
+        yield f"data: {json.dumps({'type': 'done', 'agent': current_agent})}\n\n"
+
+    except Exception as e:
+        error_msg = str(e)
+        yield f"data: {json.dumps({'type': 'error', 'error': error_msg})}\n\n"
+
+
+@router.post("/stream")
+async def stream_message(request: ChatRequest):
+    """
+    Stream a message response using Server-Sent Events.
+
+    The response is streamed in real-time as the agent generates it.
+    """
+    return StreamingResponse(
+        stream_response(request.message, request.session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@router.get("/stream")
+async def stream_message_get(
+    message: str = Query(..., description="The message to send"),
+    session_id: Optional[str] = Query(None, description="Session ID for conversation continuity")
+):
+    """
+    Stream a message response using Server-Sent Events (GET method for EventSource).
+    """
+    return StreamingResponse(
+        stream_response(message, session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
 @router.post("/message", response_model=ChatResponse)
 async def send_message(request: ChatRequest) -> ChatResponse:
     """
-    Send a message to the chat system.
+    Send a message to the chat system (non-streaming).
 
     The triage agent will automatically route to the appropriate specialist.
     Maintains conversation history per session.

@@ -87,14 +87,20 @@
                   {{ getAgentLabel(message.agentUsed) }}
                 </div>
               }
-              @if (message.isLoading) {
+              @if (message.isLoading && !message.content) {
                 <div class="typing-indicator">
                   <span></span>
                   <span></span>
                   <span></span>
                 </div>
               } @else {
-                <div class="message-text">{{ message.content }}</div>
+                <div class="message-text markdown-content"
+                     [class.streaming]="message.isLoading && message.content"
+                     [innerHTML]="message.content | markdown">
+                </div>
+                @if (message.isLoading && message.content) {
+                  <span class="streaming-cursor"></span>
+                }
               }
               <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
