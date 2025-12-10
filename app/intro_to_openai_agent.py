@@ -6,11 +6,21 @@ Demonstrates basic agent creation, execution, and tracing.
 import asyncio
 from dotenv import load_dotenv
 from agents import Agent, Runner, set_default_openai_client, trace
+from pydantic import BaseModel
 
 from app.get_client import ClientName, get_client, get_model_for_client
 
 # Load environment variables
 load_dotenv(override=True)
+
+
+class SimpleRunResult(BaseModel):
+    """Simple result structure for non-OpenAI providers"""
+    final_output: str
+    raw_responses: list
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def create_agent(client_name: ClientName = "openai"):
@@ -28,18 +38,49 @@ async def run_agent_basic(agent: Agent, prompt: str, client_name: ClientName = "
     """Run the agent with a prompt and display results."""
     # Get and set the client for this provider
     client = get_client(client_name)
-    set_default_openai_client(client)
 
-    results = await Runner.run(agent, prompt)
-    print("Full Results:")
-    print(results)
-    print("\nFinal Output:")
-    print(results.final_output)
-    return results
+    # For OpenAI, use the Agents SDK which requires the /responses endpoint
+    if client_name == "openai":
+        set_default_openai_client(client)
+        results = await Runner.run(agent, prompt)
+        print("Full Results:")
+        print(results)
+        print("\nFinal Output:")
+        print(results.final_output)
+        return results
+
+    # For DeepSeek and Gemini, use direct chat completions API
+    # They don't support the /responses endpoint used by Agents SDK
+    else:
+        model = get_model_for_client(client_name)
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": agent.instructions},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        final_output = response.choices[0].message.content
+        print("Full Results:")
+        print(f"Response from {client_name}")
+        print("\nFinal Output:")
+        print(final_output)
+
+        # Create a compatible result object
+        results = SimpleRunResult(
+            final_output=final_output,
+            raw_responses=[response]
+        )
+        return results
 
 
 async def run_agent_with_trace(agent: Agent, prompt: str, client_name: ClientName = "openai"):
-    """Run the agent with tracing enabled."""
+    """Run the agent with tracing enabled (OpenAI only)."""
+    if client_name != "openai":
+        print(f"Warning: Tracing only supported for OpenAI. Falling back to basic run for {client_name}")
+        return await run_agent_basic(agent, prompt, client_name)
+
     client = get_client(client_name)
     set_default_openai_client(client)
 

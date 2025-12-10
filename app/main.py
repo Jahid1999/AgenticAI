@@ -60,14 +60,19 @@ async def intro_openai(
         results = await run_agent_basic(agent, prompt, client)
 
         # Extract token usage from results
-        usage = results.raw_responses[-1].usage if results.raw_responses else None
+        # Handle both OpenAI Agents SDK results and direct API results
         token_usage = None
-        if usage:
-            token_usage = TokenUsage(
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                total_tokens=usage.total_tokens,
-            )
+        if results.raw_responses:
+            response = results.raw_responses[-1]
+            # Check if it's an OpenAI Agents SDK response or direct API response
+            if hasattr(response, 'usage') and response.usage:
+                usage = response.usage
+                # Handle both Agent SDK format and standard OpenAI format
+                token_usage = TokenUsage(
+                    input_tokens=getattr(usage, 'input_tokens', getattr(usage, 'prompt_tokens', 0)),
+                    output_tokens=getattr(usage, 'output_tokens', getattr(usage, 'completion_tokens', 0)),
+                    total_tokens=getattr(usage, 'total_tokens', 0),
+                )
 
         return IntroOpenAIResponse(
             message="Agent executed successfully",
