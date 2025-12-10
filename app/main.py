@@ -3,6 +3,7 @@ from fastapi import FastAPI, Query
 from pydantic import BaseModel
 from app.intro_to_openai_agent import create_agent, run_agent_basic
 from app.get_client import ClientName
+from app.guardrails_and_handoffs import process_with_guardrails_and_handoffs, HandoffResult
 
 
 class TokenUsage(BaseModel):
@@ -85,3 +86,35 @@ async def intro_openai(
         return IntroOpenAIResponse(message=str(e), prompt=prompt, client=client, agent_response=None)
     except Exception as e:
         return IntroOpenAIResponse(message=f"Error: {str(e)}", prompt=prompt, client=client, agent_response=None)
+
+
+@app.post(
+    "/guardrails-handoffs",
+    summary="Guardrails and Agent Handoffs",
+    description="Demonstrates input/output guardrails and automatic agent routing with handoffs",
+    response_model=HandoffResult,
+)
+async def guardrails_handoffs(
+    user_input: str = Query(..., description="The user input to process"),
+    client: Literal["openai", "deepseek", "gemini"] = Query(
+        "openai", description="The AI provider to use"
+    ),
+):
+    """
+    Process user input with complete guardrails and agent handoffs.
+    """
+    try:
+        result = await process_with_guardrails_and_handoffs(user_input, client)
+        return result
+    except Exception as e:
+        import traceback
+        print(f"Exception: {str(e)}")
+        print(traceback.format_exc())
+        return HandoffResult(
+            success=False,
+            routed_to="error",
+            final_response="",
+            input_guardrail_passed=False,
+            output_guardrail_passed=False,
+            errors=[f"Error: {str(e)}"]
+        )

@@ -66,6 +66,6 @@ def get_model_for_client(client_name: ClientName) -> str:
     models = {
         "openai": "gpt-4o-mini",
         "deepseek": "deepseek-chat",
-        "gemini": "gemini-2.0-flash",
+        "gemini": "gemini-2.5-flash",
     }
     return models.get(client_name, "gpt-4o-mini")
