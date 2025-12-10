@@ -3,37 +3,33 @@ Introduction to OpenAI Agents SDK
 Demonstrates basic agent creation, execution, and tracing.
 """
 
-import os
 import asyncio
 from dotenv import load_dotenv
-from agents import Agent, Runner, trace
+from agents import Agent, Runner, set_default_openai_client, trace
+
+from app.get_client import ClientName, get_client, get_model_for_client
 
 # Load environment variables
 load_dotenv(override=True)
 
 
-def check_api_key():
-    """Verify OpenAI API key is set."""
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        raise ValueError("OPENAI_API_KEY is not set in the environment variables.")
-    else:
-        print(f"OpenAI API exists: {openai_api_key[:10]}...")
-    return openai_api_key
-
-
-def create_agent():
-    """Create a history agent."""
+def create_agent(client_name: ClientName = "openai"):
+    """Create a history agent with the specified client."""
+    model = get_model_for_client(client_name)
     agent = Agent(
         name="History Agent",
         instructions="You have enough knowledge about history. You are able to answer questions related to historical events, dates, and figures.",
-        model="gpt-5-mini",
+        model=model,
     )
     return agent
 
 
-async def run_agent_basic(agent: Agent, prompt: str):
+async def run_agent_basic(agent: Agent, prompt: str, client_name: ClientName = "openai"):
     """Run the agent with a prompt and display results."""
+    # Get and set the client for this provider
+    client = get_client(client_name)
+    set_default_openai_client(client)
+
     results = await Runner.run(agent, prompt)
     print("Full Results:")
     print(results)
@@ -42,8 +38,11 @@ async def run_agent_basic(agent: Agent, prompt: str):
     return results
 
 
-async def run_agent_with_trace(agent: Agent, prompt: str):
+async def run_agent_with_trace(agent: Agent, prompt: str, client_name: ClientName = "openai"):
     """Run the agent with tracing enabled."""
+    client = get_client(client_name)
+    set_default_openai_client(client)
+
     with trace("Answering question"):
         results = await Runner.run(agent, prompt)
         print(results.final_output)
@@ -52,20 +51,20 @@ async def run_agent_with_trace(agent: Agent, prompt: str):
 
 async def main():
     """Main entry point demonstrating OpenAI Agents SDK usage."""
-    # Step 1: Check API key
-    check_api_key()
+    # Choose which client to use: "openai", "deepseek", or "gemini"
+    client_name: ClientName = "openai"
 
-    # Step 2: Create the agent
-    agent = create_agent()
+    # Create the agent with the specified client
+    agent = create_agent(client_name)
     print(f"\nAgent created: {agent}")
 
-    # Step 3: Run the agent with a basic prompt
+    # Run the agent with a basic prompt
     print("\n--- Basic Agent Run ---")
-    await run_agent_basic(agent, "Tell me a joke about autonomous agents.")
+    await run_agent_basic(agent, "Tell me about World War 2.", client_name)
 
-    # Step 4: Run with tracing
+    # Run with tracing
     print("\n--- Traced Agent Run ---")
-    await run_agent_with_trace(agent, "Tell me a joke about autonomous agents.")
+    await run_agent_with_trace(agent, "Who won the 2022 FIFA World Cup?", client_name)
 
 
 if __name__ == "__main__":
